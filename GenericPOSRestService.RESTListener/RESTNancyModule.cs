@@ -8,6 +8,7 @@ using Nancy.Responses;
 using Newtonsoft.Json;
 using System.Xml.Linq;
 using RestSharp;
+using System.IO;
 
 namespace GenericPOSRestService.RESTListener
 {
@@ -416,14 +417,12 @@ namespace GenericPOSRestService.RESTListener
             string orderTimeStr = orderTime.ToString("yyMMddHHmmss");
             request.DOTOrder.OrderTime = orderTimeStr;
 
-          
-
             //copy the TableServiceNumber to the tableNo
             if ((request.DOTOrder.Location == Location.EatIn) && (request.DOTOrder.TableServiceNumber != null))
                 request.DOTOrder.tableNo = Convert.ToInt32(request.DOTOrder.TableServiceNumber);
 
             //if Function Number is a 4 convert it to 33 confirm with coneliu
-            if(request.DOTOrder.FunctionNumber == FunctionNumber.EXT_OPEN_ORDER)
+            if (request.DOTOrder.FunctionNumber == FunctionNumber.EXT_OPEN_ORDER)
             {
                 request.DOTOrder.FunctionNumber = FunctionNumber.PRE_CALCULATE;
             }
@@ -434,7 +433,8 @@ namespace GenericPOSRestService.RESTListener
             ZonalWrapper wrapper = new ZonalWrapper();
            
             //convert to a json string if needed
-           string requestStr = JsonConvert.SerializeObject(request.DOTOrder);
+            string requestStr = JsonConvert.SerializeObject(request.DOTOrder);
+            File.WriteAllText("C:\\temp\\jsonStripped.json", requestStr);
 
 
             //check if the order has an order ID so we know if the order is a checkBasket or 
@@ -447,11 +447,11 @@ namespace GenericPOSRestService.RESTListener
                 // return the response from IOrder populate the Acrelec order response with any returned data
                 //that maps and also any data needed from the request
 
-                //convert from Acrelec request to Zonal request for CheckBAsket
+                //convert from Acrelec request to Zonal request for CheckBasket
                 // will be a stored procedure in the final code
                 response = wrapper.CheckBasket(request, response);
 
-                responseStr = JsonConvert.SerializeObject(response);
+                //responseStr = JsonConvert.SerializeObject(response);
 
             }
             else
@@ -459,6 +459,7 @@ namespace GenericPOSRestService.RESTListener
                 //TODO build the Paid Order to Zonal form 
                 // send the response to I-Order PlacePaidOrder get the response and update it 
                 // to the Acrelec response
+                response = wrapper.PlacePaidOrder(request, response);
             }
 
             //responseStr = restCalls.PostAsyncRequest(orderUrl, requestOrderStr);

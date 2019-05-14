@@ -28,7 +28,8 @@ namespace GenericPOSRestService.RESTListener
                  "\"bundleIdentifier\" : " +
                  "\"Acrelec\"" +
                  ", \"userDeviceIdentifier\" : " +
-                 "\"Kiosk 1\"" +
+                 //"\"Kiosk 1\"" +
+                 orderRequest.DOTOrder.Kiosk + 
                  ", \"platform\" : " + "\"" + RESTNancyModule.Platform + "\"" +
                 ", \"siteId\": " +
                 RESTNancyModule.SiteId + ", " +
@@ -38,7 +39,8 @@ namespace GenericPOSRestService.RESTListener
                  1 +
                 ", \"lines\" : [{" +
                  "\"IngredientId\" : " +
-                  "\"10000000219\"" +
+                //  "\"10000000219\"" +
+                orderRequest.DOTOrder.Items[0].ID + 
                  ", \"portionTypeId\" : " +
                  1 +
                  ", \"displayRecordId\" : " +
@@ -66,11 +68,6 @@ namespace GenericPOSRestService.RESTListener
             //prepare the class for conversion
             dynamic basketData = JsonConvert.DeserializeObject<dynamic>(response.Content);
 
-            //
-            //Build response with request Items that the response needs
-            //
-          
-
             orderResponse.OrderCreateResponse.Order.Kiosk = orderRequest.DOTOrder.Kiosk;
             orderResponse.OrderCreateResponse.Order.RefInt = orderRequest.DOTOrder.RefInt;
         
@@ -84,7 +81,7 @@ namespace GenericPOSRestService.RESTListener
             return orderResponse;
         }
 
-        public void PlacePaidOrder()
+        public OrderCreatePOSResponse PlacePaidOrder(OrderCreateRequest orderRequest, OrderCreatePOSResponse orderResponse)
         {
             details.HeaderInformation(out client, out request);
 
@@ -95,9 +92,9 @@ namespace GenericPOSRestService.RESTListener
                  "\"salesAreaId\" : " +
                 RESTNancyModule.SalesAreaId +
                 ", \"TransactionId\" : " + // use refInt
-                " \"Test00001 \"" + 
-                ", \"basketId\" : " +  // get from CheckBasket make it the orderID
-                 "\"1E3EECAF-FB41-EAFF-EEB6433C3662F86F\"" +
+                orderRequest.DOTOrder.RefInt +
+                ", \"basketId\" : " +  // get from CheckBasket make it the orderID in the request
+                 orderRequest.DOTOrder.OrderID +
                  ", \"table\" : " +
                  "\"1\"" +
                  ", \"deviceData\" : " +
@@ -113,14 +110,27 @@ namespace GenericPOSRestService.RESTListener
 
             //Expose the class details
              dynamic paidOrder =  JsonConvert.DeserializeObject<dynamic>(response.Content);
-            
-            //copy the details to the Acrelec Order Response
+
+            //
+            //Build response with request Items that the response needs
+            //
 
 
+            orderResponse.OrderCreateResponse.Order.Kiosk = orderRequest.DOTOrder.Kiosk;
+            orderResponse.OrderCreateResponse.Order.RefInt = orderRequest.DOTOrder.RefInt;
 
-    }
+            //remove decimal point from total returned and put in the response Amount due.
+            string AmountPaid = Convert.ToString(paidOrder.basketTotal);
 
-    void CallStoredProcedure()
+            string AmountPaidWithoutDecimal = AmountPaid.Replace(".", string.Empty);
+
+            orderResponse.OrderCreateResponse.Order.OrderID = paidOrder.basketId;
+            orderResponse.OrderCreateResponse.Order.Totals.AmountPaid = Convert.ToInt64(AmountPaidWithoutDecimal);
+            return orderResponse;
+
+        }
+
+        void CallStoredProcedure()
         {
 
         }
@@ -128,10 +138,6 @@ namespace GenericPOSRestService.RESTListener
         void PopulateAcrelecBasketOrderResponse()
         {
 
-        }
-
-        void PopulateAcrelecPaymentResponse()
-        {
         }
             
     }
