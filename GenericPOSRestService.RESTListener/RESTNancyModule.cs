@@ -384,7 +384,7 @@ namespace GenericPOSRestService.RESTListener
             }
             else
             {
-                // POS Calls - Get the status load the url path
+                // POS Calls - Get the status load and url path
                 LoadAPIUrls();
 
                 //responseStr = restCalls.GetAsyncRequest(statusUrl + kiosk);
@@ -409,7 +409,6 @@ namespace GenericPOSRestService.RESTListener
             Order order = response.OrderCreateResponse.Order;
             string responseStr = string.Empty;
 
-            
 
             //TODO order time is invalid from test need to check if the kiosk 
             //does the same thing
@@ -421,61 +420,38 @@ namespace GenericPOSRestService.RESTListener
             if ((request.DOTOrder.Location == Location.EatIn) && (request.DOTOrder.TableServiceNumber != null))
                 request.DOTOrder.tableNo = Convert.ToInt32(request.DOTOrder.TableServiceNumber);
 
-            //if Function Number is a 4 convert it to 33 confirm with coneliu
-            if (request.DOTOrder.FunctionNumber == FunctionNumber.EXT_OPEN_ORDER)
-            {
-                request.DOTOrder.FunctionNumber = FunctionNumber.PRE_CALCULATE;
-            }
-
-            //load the url path and static Header and Basket values
+         
+            //load the url path and static Header and Basket values to use
             LoadAPIUrls();
 
             ZonalWrapper wrapper = new ZonalWrapper();
-           
-            //convert to a json string if needed
-            string requestStr = JsonConvert.SerializeObject(request.DOTOrder);
-            File.WriteAllText("C:\\temp\\jsonStripped.json", requestStr);
 
-
-            //check if the order has an order ID so we know if the order is a checkBasket or 
-            // PlacePaid Order
             //
-            if (string.IsNullOrEmpty(request.DOTOrder.OrderID))
+            //
+            if(request.DOTOrder.FunctionNumber == FunctionNumber.PRE_CALCULATE)
             {
-                //TODO call the stored procedure to convert the Order to Zonal form and
-                // send the response to I-Order CheckBasket 
-                // return the response from IOrder populate the Acrelec order response with any returned data
-                //that maps and also any data needed from the request
-
+                //TODO call the stored procedure to convert the Order to Zonal
                 //convert from Acrelec request to Zonal request for CheckBasket
                 // will be a stored procedure in the final code
                 response = wrapper.CheckBasket(request, response);
 
-                //responseStr = JsonConvert.SerializeObject(response);
-
             }
-            else
+            if (request.DOTOrder.FunctionNumber == FunctionNumber.EXT_COMPLETE_ORDER)
             {
                 //TODO build the Paid Order to Zonal form 
                 // send the response to I-Order PlacePaidOrder get the response and update it 
                 // to the Acrelec response
+
                 response = wrapper.PlacePaidOrder(request, response);
             }
 
-            //responseStr = restCalls.PostAsyncRequest(orderUrl, requestOrderStr);
-
-            //Deserialize response  string to an Object
-            //OrderCreateResponse jsonOrder = JsonConvert.DeserializeObject<OrderCreateResponse>(responseStr);
 
             //copy to Order Table Number
             if ((request.DOTOrder.Location == Location.EatIn) && (request.DOTOrder.TableServiceNumber != null))
             { 
                 response.OrderCreateResponse.Order.tableNo  = Convert.ToInt32(request.DOTOrder.TableServiceNumber);
             }
-
-            //populate Order with the result from the POS 
-            //response.OrderCreateResponse = jsonOrder;
-           
+        
 
             if (httpStatusCode == HttpStatusCode.Created)
             {
