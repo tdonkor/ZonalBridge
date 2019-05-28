@@ -21,6 +21,7 @@ namespace GenericPOSRestService.RESTListener
         public CallStoredProc(OrderCreateRequest request)
         {
             this.request = request;
+            count = 0;
         }
 
         //empty constructor
@@ -44,7 +45,7 @@ namespace GenericPOSRestService.RESTListener
             long itemId = 0;
 
             int parentQty = 0;
-            int? componentId = null;
+            int componentId = 0;
 
 
             // Create a new SqlConnection object
@@ -113,7 +114,6 @@ namespace GenericPOSRestService.RESTListener
                                         IOrderBasketAddComponentModifier(con, itemQty, parentItemId, itemId, componentId);
 
 
-                                //     componentId = GetNum(con, parentItemId);
 
 
                                 count++;
@@ -247,24 +247,6 @@ namespace GenericPOSRestService.RESTListener
                 return parentItemId;
                 }
 
-            //// 3) call the iOrderBasketAddComponentItem 
-            ////check if a meal deal if so call twice once for the drink and side
-            
-            //if ((request.DOTOrder.Items[0].IsMenu == true) && (itemId != parentId))
-            //{
-
-            //    if (count < 2)
-            //    {
-            //        if (count == 0)
-            //            componentId = 0;
-
-            //        else
-            //            componentId = GetNum(con, parentItemId);
-          
-            //        iOrderBasketAddComponentItem(con, itemQty, parentItemId, itemId, componentId);
-            //        count++;
-            //    }
-            //}
            
             // return parentId;
         }
@@ -276,7 +258,7 @@ namespace GenericPOSRestService.RESTListener
         /// </summary>
         /// <param name="con"></param>
         /// <returns>result from Stored procedure</returns>
-        public int IOrderBasketAddComponentItem(SqlConnection con, int qty, int parentItemId, long itemId, int? componentItemId)
+        public int IOrderBasketAddComponentItem(SqlConnection con, int qty, int parentItemId, long itemId, int componentItemId)
             {
                 // create and configure a new command 
                 SqlCommand com = con.CreateCommand();

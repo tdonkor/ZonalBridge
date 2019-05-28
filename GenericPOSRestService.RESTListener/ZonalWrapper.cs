@@ -135,8 +135,7 @@ namespace GenericPOSRestService.RESTListener
             else
             {
                 //TODO call stored procedure store BasketID and REFInt from procedure and compare.
-                // Log.Info($"Store OrderID Value{orderRequest.DOTOrder.OrderID} for RefInt value:{orderRequest.DOTOrder.RefInt}");
-
+                // Log.Info($"Store OrderID Value{orderRequest.DOTOrder.OrderID} for RefInt value:{orderRequest.DOTOrder.RefIn
 
                 //TODOstore Order Id value - remove after testing
                // File.WriteAllText("C:\\Temp\\BasketId.txt", orderResponse.OrderCreateResponse.Order.OrderID);
