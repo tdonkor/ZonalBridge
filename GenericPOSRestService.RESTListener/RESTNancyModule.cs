@@ -9,6 +9,9 @@ using Newtonsoft.Json;
 using System.Xml.Linq;
 using RestSharp;
 using System.IO;
+using System.Data.SqlClient;
+using System.Data;
+using System.Text;
 
 namespace GenericPOSRestService.RESTListener
 {
@@ -40,9 +43,13 @@ namespace GenericPOSRestService.RESTListener
         public static string Platform;
         public static int MenuId;
 
-       // RestClient client;
-       // RestRequest request;
- 
+        //Connection String
+        public static string ConnectionString;
+        public static string TableName;
+
+        // RestClient client;
+        // RestRequest request;
+
 
         public string LogName
         {
@@ -373,9 +380,7 @@ namespace GenericPOSRestService.RESTListener
         {
             StatusPOSResponse response = new StatusPOSResponse();
             string responseStr = string.Empty;
-            StatusResponse getResponse;
-            //RestCalls restCalls = new RestCalls();
-          
+            
             //check kiosk is valid
             if (string.IsNullOrWhiteSpace(kiosk))
             {
@@ -386,12 +391,9 @@ namespace GenericPOSRestService.RESTListener
             {
                 // POS Calls - Get the status load and url path
                 LoadAPIUrls();
+                ZonalWrapper wrapper = new ZonalWrapper();
 
-                //responseStr = restCalls.GetAsyncRequest(statusUrl + kiosk);
-
-                //Deserialise returned data into a JSon object to return
-                getResponse = JsonConvert.DeserializeObject<StatusResponse>(responseStr);
-                response.StatusResponse = getResponse;
+                response = wrapper.AuthCheck(response);
             }
 
             return response;
@@ -413,27 +415,36 @@ namespace GenericPOSRestService.RESTListener
             //TODO order time is invalid from test need to check if the kiosk 
             //does the same thing
             DateTime orderTime = DateTime.Now;
-            string orderTimeStr = orderTime.ToString("yyMMddHHmmss");
-            request.DOTOrder.OrderTime = orderTimeStr;
+            request.DOTOrder.OrderTime = orderTime.ToString("yyMMddHHmmss");
 
             //copy the TableServiceNumber to the tableNo
             if ((request.DOTOrder.Location == Location.EatIn) && (request.DOTOrder.TableServiceNumber != null))
                 request.DOTOrder.tableNo = Convert.ToInt32(request.DOTOrder.TableServiceNumber);
 
-         
-            //load the url path and static Header and Basket values to use
+            //TODO remove just for testing
+            //string requestStr = JsonConvert.SerializeObject(request.DOTOrder);
+            //File.WriteAllText("C:\\Test\\RequestString.txt", requestStr);
+
+
+            //load the API Settings to use
             LoadAPIUrls();
 
             ZonalWrapper wrapper = new ZonalWrapper();
 
-            //
-            //
             if(request.DOTOrder.FunctionNumber == FunctionNumber.PRE_CALCULATE)
             {
-                //TODO call the stored procedure to convert the Order to Zonal
-                //convert from Acrelec request to Zonal request for CheckBasket
-                // will be a stored procedure in the final code
-                response = wrapper.CheckBasket(request, response);
+                // call the stored procedures to convert the Order to Zonal format
+                CallStoredProc procs = new CallStoredProc(request);
+                int basketId = procs.StoredProcs();
+
+                //run the stored proc iOrderCheckBasket
+                string payLoad = iOrderCheckBasket(basketId);
+
+                //remove formatting
+                //payLoad = payLoad.Replace(@"\", string.Empty);
+                payLoad = payLoad.Remove(0, 9); // remove " from beginning 
+
+                response = wrapper.CheckBasket(request, response, payLoad);
 
             }
             if (request.DOTOrder.FunctionNumber == FunctionNumber.EXT_COMPLETE_ORDER)
@@ -445,14 +456,12 @@ namespace GenericPOSRestService.RESTListener
                 response = wrapper.PlacePaidOrder(request, response);
             }
 
-
             //copy to Order Table Number
             if ((request.DOTOrder.Location == Location.EatIn) && (request.DOTOrder.TableServiceNumber != null))
             { 
                 response.OrderCreateResponse.Order.tableNo  = Convert.ToInt32(request.DOTOrder.TableServiceNumber);
             }
         
-
             if (httpStatusCode == HttpStatusCode.Created)
             {
                 Log.Info($"HTTP Status Code Created:{httpStatusCode}");
@@ -490,7 +499,7 @@ namespace GenericPOSRestService.RESTListener
 
                 //Order details 
                 XElement orderElement = elements.Element("OrderUrl");
-                XElement getStatusElement = elements.Element("GetStatusUrl");
+                //XElement getStatusElement = elements.Element("GetStatusUrl");
 
                 //Header details
                 XElement contentTypeElement = elements.Element("ContentType");
@@ -505,11 +514,16 @@ namespace GenericPOSRestService.RESTListener
                 XElement menuIdElement = elements.Element("MenuId");
                 XElement platformElement = elements.Element("Platform");
 
+                // Database details
+                XElement connectionString = elements.Element("ConnectionString");
+                XElement tableName = elements.Element("TableName");
+
+
                 //Set the static values to use
 
                 //set the values from the XML file
                 OrderUrl = orderElement.Value;
-                StatusUrl = getStatusElement.Value;
+                //StatusUrl = getStatusElement.Value;
 
                 //HeaderDetails
                 ContentType = contentTypeElement.Value;
@@ -524,11 +538,73 @@ namespace GenericPOSRestService.RESTListener
                 MenuId = Convert.ToInt32(menuIdElement.Value);
                 Platform = platformElement.Value;
 
-    }
+                //Database Details
+                ConnectionString = connectionString.Value;
+                TableName = tableName.Value;
+
+            }
             catch (Exception ex)
             {
                 Console.WriteLine(ex.Message);
                 
+            }
+        }
+
+
+        /// <summary>
+        /// call the iOrderCheckBasket stored proc creates a new parent item for a standalone product or a meal deal
+        /// </summary>
+        /// <param name="con"></param>
+        /// <returns>result from Stored procedure</returns>
+        public static string iOrderCheckBasket(int basketId)
+        {
+            string payload = string.Empty;
+
+            // Create a new SqlConnection object
+            using (SqlConnection conn = new SqlConnection())
+            {
+                // Configure the SqlConnection object
+                conn.ConnectionString = RESTNancyModule.ConnectionString;
+                conn.Open();
+                Log.Info("Connected to the Database for CheckBasket");
+
+                // 1) call the iOrderCheckBasket stored proc get the Id for the new Basket
+
+                // create and configure a new command 
+                SqlCommand comm = conn.CreateCommand();
+
+                comm.CommandType = CommandType.StoredProcedure;
+                comm.CommandText = "iOrderCheckBasket";
+
+                // Create SqlParameter objects 
+                SqlParameter p1 = comm.CreateParameter();
+                p1.ParameterName = "@BasketID";
+                p1.SqlDbType = SqlDbType.Int;
+                p1.Value = basketId;
+                comm.Parameters.Add(p1);
+
+          
+
+                var jsonResult = new StringBuilder();
+
+                // Execute the command and process the results
+                using (var reader = comm.ExecuteReader())
+                {
+                    if (!reader.HasRows)
+                    {
+                        jsonResult.Append("[]");
+                    }
+                    while (reader.Read())
+                    {
+                          payload = (reader.GetValue(0).ToString());
+
+                        //Display The details
+                        jsonResult.Append(reader.GetValue(0).ToString());
+
+                        Log.Info($"iOrderCheckBasket output: {payload}");
+                    }
+                }
+                return payload;
             }
         }
     }
