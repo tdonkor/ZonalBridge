@@ -1,14 +1,9 @@
 ﻿using GenericPOSRestService.Common;
 using GenericPOSRestService.Common.ServiceCallClasses;
 using System;
-using System.Collections.Generic;
-using System.Configuration;
 using System.Data;
 using System.Data.SqlClient;
-using System.Linq;
-using System.Numerics;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace GenericPOSRestService.RESTListener
 {
@@ -33,9 +28,13 @@ namespace GenericPOSRestService.RESTListener
         /// <summary>
         /// Connect to the database 
         /// Run stored Procedures
+        ///     1- you call add parent item for each meal deal or stand alone product for a meal deal 
+        //      2 -  you then have to call add component item twice
+        //      once for the drink
+        //      once for the side
+        //      if the drink has a modifier, you have to call add component modifier
+        //      with the id of the component you are adding the modifier to
         /// </summary>
-        /// <param name="menuStr"></param>
-        /// <param name="guid"></param>
         public int StoredProcs()
         {
             int basketId = 0;
@@ -57,14 +56,7 @@ namespace GenericPOSRestService.RESTListener
                 Log.Info("Connected to the Database");
 
                 // 1) call the iOrderBasketAdd stored proc get the Id for the new Basket
-                basketId = iOrderBasketAdd(con);
-
-                //1- you call add parent item for each meal deal or stand alone product for a meal deal 
-                //2 -  you then have to call add component item twice
-                //  once for the drink
-                //  once for the side
-                // if the drink has a modifier, you have to call add component modifier
-                // with the id of the component you are adding the modifier to
+                basketId = IOrderBasketAdd(con, Convert.ToInt32(request.DOTOrder.RefInt), request.DOTOrder.Kiosk, string.Empty, 0);
 
                 int num = request.DOTOrder.Items.Count;
                 int numOfItemsInParent = request.DOTOrder.Items[0].Items.Count;
@@ -75,13 +67,13 @@ namespace GenericPOSRestService.RESTListener
                 //load the main item with the parent item
                 parentItemId = iOrderBasketAddParentItem(con, basketId, parentQty, parentId);
 
-                //if item is a single Item has a modifier run the iOrderBasketAddParentModifier
                 //if item is a single Item and not a meal but has a modifier run the iOrderBasketAddParentModifier
-
-                if ((request.DOTOrder.Items[0].IsMenu == false) && (request.DOTOrder.Items[0].Items.Count > 0))
+                //
+                // if ((request.DOTOrder.Items[0].IsMenu == false) && (request.DOTOrder.Items[0].Items.Count > 0))
+                if(request.DOTOrder.Items[0].Items.Count == 1)
                 {
                     //load the main item with the parent item
-                    parentItemId = IOrderBasketAddParentModifier(con, basketId, parentQty, parentId);
+                    IOrderBasketAddParentModifier(con, parentId, parentQty, parentItemId);
                 }
 
                 if ((numOfItemsInParent != 0) && (count < 2)) //a meal or main item has other items loop through
@@ -92,29 +84,21 @@ namespace GenericPOSRestService.RESTListener
                             itemId = Convert.ToInt64(request.DOTOrder.Items[0].Items[i].ID);
                             itemQty = Convert.ToInt32(request.DOTOrder.Items[0].Items[i].Qty);
 
-                         
-
                         // 2) call the iOrderBasketAddParentItem stored procedure for
-                        // stand alone products for a meal deal 
-                        // iOrderBasketAddParentItem(con, basketId, itemQty, itemId);
-
+               
                         if ((request.DOTOrder.Items[0].IsMenu == true) && (itemId != parentId))
                         {
 
                             if (count < 2)
                             {
                                 //Drinks always first
-                                //if (count == 0)
-                                    componentId = 0;
+                                componentId = 0;
 
                                 componentId =  IOrderBasketAddComponentItem(con, itemQty, parentItemId, itemId, componentId);
 
                                 //check for a modifier
                                 if ((request.DOTOrder.Items[0].Items[i].Items.Count) > 0)
                                         IOrderBasketAddComponentModifier(con, itemQty, parentItemId, itemId, componentId);
-
-
-
 
                                 count++;
                             }
@@ -134,7 +118,7 @@ namespace GenericPOSRestService.RESTListener
         /// </summary>
         /// <param name="con"></param>
         /// <returns>result from Stored procedure</returns>
-        public int iOrderBasketAdd(SqlConnection con)
+        public int IOrderBasketAdd(SqlConnection con, int refInt, string kioskId, string checkBasketOrderId, long checkBasketSubTotal)
         {
             // create and configure a new command 
             SqlCommand com = con.CreateCommand();
@@ -145,18 +129,31 @@ namespace GenericPOSRestService.RESTListener
          
 
             SqlParameter p1 = com.CreateParameter();
-            p1.ParameterName = "@KioskId";
+            p1.ParameterName = "@kioskRefInt";
             p1.SqlDbType = SqlDbType.Int;
-            p1.Value = Convert.ToInt32(request.DOTOrder.Kiosk);
+            p1.Value = refInt;
             com.Parameters.Add(p1);
 
-            // Create SqlParameter objects 
+        
             SqlParameter p2 = com.CreateParameter();
-            p2.ParameterName = "@BasketURN";
-            p2.SqlDbType = SqlDbType.BigInt;
-            p2.Value = random.Next(100000, 10000000); ;
+            p2.ParameterName = "@kioskID";
+            p2.SqlDbType = SqlDbType.Int;
+            p2.Value = kioskId;
             com.Parameters.Add(p2);
-   
+
+            SqlParameter p3 = com.CreateParameter();
+            p3.ParameterName = "@checkBasketOrderId";
+            p3.SqlDbType = SqlDbType.NVarChar;
+            p3.Value = checkBasketOrderId;
+            com.Parameters.Add(p3);
+
+
+            SqlParameter p4 = com.CreateParameter();
+            p4.ParameterName = "@checkBasketSubTotal ";
+            p4.SqlDbType = SqlDbType.BigInt;
+            p4.Value = checkBasketSubTotal;
+            com.Parameters.Add(p4);
+
 
             var jsonResult = new StringBuilder();
             int basketId = 0;       
@@ -201,7 +198,6 @@ namespace GenericPOSRestService.RESTListener
 
                 int parentItemId = 0;
             
-
                  // Create SqlParameter objects 
                 SqlParameter p1 = com.CreateParameter();
                 p1.ParameterName = "@BasketID";
@@ -245,13 +241,10 @@ namespace GenericPOSRestService.RESTListener
                     }
 
                 return parentItemId;
-                }
 
-           
-            // return parentId;
+                }
         }
 
-       
 
         /// <summary>
         /// call the iOrderBasketAddComponentItem stored proc creates a new parent item for a standalone product or a meal deal
@@ -393,14 +386,14 @@ namespace GenericPOSRestService.RESTListener
         /// </summary>
         /// <param name="con"></param>
         /// <returns>result from Stored procedure</returns>
-        public int IOrderBasketAddParentModifier(SqlConnection con, int qty, int parentItemId, long itemId)
+        public void IOrderBasketAddParentModifier(SqlConnection con, long parentId, int qty, int parentItemId )
         {
             // create and configure a new command 
             SqlCommand com = con.CreateCommand();
             int parentModifier = 0;
 
             com.CommandType = CommandType.StoredProcedure;
-            com.CommandText = "IOrderBasketAddComponentModifier";
+            com.CommandText = "IOrderBasketAddParentModifier";
 
             // Create SqlParameter objects 
             SqlParameter p1 = com.CreateParameter();
@@ -413,7 +406,7 @@ namespace GenericPOSRestService.RESTListener
             SqlParameter p2 = com.CreateParameter();
             p2.ParameterName = "@AKDURN";
             p2.SqlDbType = SqlDbType.BigInt;
-            p2.Value = itemId;
+            p2.Value = parentId;
             com.Parameters.Add(p2);
 
             //URN to identify the main product Quantity
@@ -445,28 +438,7 @@ namespace GenericPOSRestService.RESTListener
                     Log.Info($"iOrderBasketAddParentItem output: {parentModifier}");
                 }
             }
-            return parentModifier;
-
         }
 
-        public int GetNum(SqlConnection con, int parentItemId)
-        {
-         
-            SqlCommand com = con.CreateCommand();
-            com.CommandType = CommandType.Text;
-
-            // Create SqlParameter objects 
-            SqlParameter p1 = com.CreateParameter();
-            p1.ParameterName = "@ParentItemID";
-            p1.SqlDbType = SqlDbType.Int;
-            p1.Value = parentItemId;
-            com.Parameters.Add(p1);
-
-            int num = 0;
-       
-            com.CommandText = "select id from iOrderBasketComponentItem where iOrderBasketComponentItem.ParentItemID = @ParentItemID and IsMealDealSize = 1";
-            num = Convert.ToInt32(com.ExecuteScalar());
-            return num;
-        }
     }
 }

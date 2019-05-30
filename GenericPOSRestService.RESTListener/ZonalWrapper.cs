@@ -18,10 +18,19 @@ namespace GenericPOSRestService.RESTListener
         RestClient client;
         RestRequest request;
         RequestDetails details;
+        CallStoredProc storedProcs;
+
+        static string checkBasketId = string.Empty;
+        static string subTotal = string.Empty;
+
 
         public ZonalWrapper()
         {
             details = new RequestDetails();
+            storedProcs = new CallStoredProc();
+
+            checkBasketId = string.Empty;
+            subTotal = string.Empty;
         }
 
         /// <summary>
@@ -124,6 +133,7 @@ namespace GenericPOSRestService.RESTListener
             orderResponse.OrderCreateResponse.Order.Totals.AmountDue = Convert.ToInt64(AmountDueWithoutDecimal);
 
             orderResponse.OrderCreateResponse.Order.OrderID = basketData.basketId;
+          
 
             //check order ID is not empty or Null
             if (string.IsNullOrEmpty(orderResponse.OrderCreateResponse.Order.OrderID))
@@ -134,16 +144,22 @@ namespace GenericPOSRestService.RESTListener
             }
             else
             {
-                //TODO call stored procedure store BasketID and REFInt from procedure and compare.
-                // Log.Info($"Store OrderID Value{orderRequest.DOTOrder.OrderID} for RefInt value:{orderRequest.DOTOrder.RefIn
 
-                //TODOstore Order Id value - remove after testing
-               // File.WriteAllText("C:\\Temp\\BasketId.txt", orderResponse.OrderCreateResponse.Order.OrderID);
-;
+                using (SqlConnection con = new SqlConnection())
+                {
+                    // Configure the SqlConnection object
+                    con.ConnectionString = RESTNancyModule.ConnectionString;
+                    con.Open();
+                    Log.Info("Connected to the Database");
+
+                    //update to the BasketTable.
+                    storedProcs.IOrderBasketAdd(con, Convert.ToInt32(orderRequest.DOTOrder.RefInt), orderRequest.DOTOrder.Kiosk, orderResponse.OrderCreateResponse.Order.OrderID, orderResponse.OrderCreateResponse.Order.Totals.AmountDue);
+                }
+                Log.Info("Disconnected from the Database");
 
                 //TODO call the CheckBasket Store Procedure to get checkBasket Json string.
                 //Log.Info("Get CheckBasket string from Database");
-                ExecuteNonQueryExample(orderResponse.OrderCreateResponse.Order.OrderID, orderResponse.OrderCreateResponse.Order.RefInt);
+                //ExecuteNonQueryExample(orderResponse.OrderCreateResponse.Order.OrderID, orderResponse.OrderCreateResponse.Order.RefInt);
 
             }
 
@@ -158,14 +174,13 @@ namespace GenericPOSRestService.RESTListener
         /// <returns>OrderCreatePOSResponse response</returns>
         public OrderCreatePOSResponse PlacePaidOrder(OrderCreateRequest orderRequest, OrderCreatePOSResponse orderResponse)
         {
+            //Header details
             details.HeaderInformation(out client, out request);
-
-            //TODO remove just in for testing- read orderId from file.
-           // orderRequest.DOTOrder.OrderID = File.ReadAllText("C:\\Temp\\BasketId.txt");
 
             //call Database get BasketID and RefInt from procedure and compare.
             Log.Info($"Get OrderID Value from Database for RefInt{orderRequest.DOTOrder.RefInt}");
-            orderRequest.DOTOrder.OrderID = ExecuteScalarExample(orderRequest.DOTOrder.RefInt);
+            AKDiOrderBasket  orderBasket = GetOrderBasketId(orderRequest.DOTOrder.RefInt, orderRequest.DOTOrder.Kiosk);
+            orderRequest.DOTOrder.OrderID = orderBasket.CheckBasketOrderID;
 
             string paidOrderStr = "{\"request\" : {\"method\" : \"placePaidOrder\", " +
              "\"bundleIdentifier\" : " + "\" \"" +
@@ -206,7 +221,7 @@ namespace GenericPOSRestService.RESTListener
             }
 
             //Build response with AmountPaid and OrderPOSNumber
-            orderResponse.OrderCreateResponse.Order.Totals.AmountPaid = orderRequest.DOTOrder.Tender.Total;
+            orderResponse.OrderCreateResponse.Order.Totals.AmountPaid = Convert.ToInt64(orderBasket.CheckBasketSubTotal);
             orderResponse.OrderCreateResponse.Order.OrderPOSNumber = paidOrder.accountNumber;
 
             return orderResponse;
@@ -214,80 +229,73 @@ namespace GenericPOSRestService.RESTListener
         }
 
 
-        /// <summary>
-        /// Store BasketId and RefId
-        /// </summary>
-        /// <param name="orderIdValue"></param>
-        /// <param name="refIntValue"></param>
-        public static void ExecuteNonQueryExample(string orderIdValue, string refIntValue)
-        {
-            // Create a new SqlConnection object
-            using (SqlConnection con = new SqlConnection())
-            {
-                // 1. Configure the SqlConnection object
-                con.ConnectionString = RESTNancyModule.ConnectionString;
-
-                // Open the database connection and execute the example 
-                // commands through the connection
-                con.Open();
-              
-                // using (SqlCommand cmd = new SqlCommand("INSERT INTO BASKETDATATABLE (BasketId, RefInt) VALUES (@OrderId, @RefInt ) ", con))
-                using (SqlCommand cmd = new SqlCommand($"UPDATE {RESTNancyModule.TableName} SET BasketId = @OrderId, RefInt = @RefInt;", con))
-                {
-                    cmd.CommandType = CommandType.Text;
-                    cmd.Parameters.AddWithValue("@OrderId", orderIdValue);
-                    cmd.Parameters.AddWithValue("@RefInt", refIntValue);
-
-                    int result = cmd.ExecuteNonQuery();
-
-                    if (result == 1)
-                    {
-                        Log.Info("BasketDataTable.BasketId updated");
-                    }
-                    else
-                    {
-                        Log.Info("BasketDataTable.BasketId not updated");
-                    }
-                }
-            }
-        }
-
 
         /// <summary>
-        /// Use to return Basket/OrderID from a table for the stored order after a Function 33 
-        /// and for a Function 3  
+        /// Use to return/store Basket/OrderID from a table for the stored order after a Function 33 
+        /// and use the values for a Function 3  
         /// </summary>
         /// <param name="con"></param>
-        public string ExecuteScalarExample(string RefInt)
+        public AKDiOrderBasket GetOrderBasketId(string KioskRefInt, string kioskId)
         {
-            string orderId = string.Empty;
+            AKDiOrderBasket orderBasket = new AKDiOrderBasket();
 
             // Create a new SqlConnection object
             using (SqlConnection con = new SqlConnection())
             {
-                // 1. Configure the SqlConnection object
+                // Configure the SqlConnection object
                 con.ConnectionString = RESTNancyModule.ConnectionString;
-
-                // Open the database connection and execute the example 
-                // commands through the connection
                 con.Open();
-                
-                SqlCommand com = con.CreateCommand();
-                com.CommandType = CommandType.Text;
-                com.Parameters.Add("RefInt", SqlDbType.VarChar).Value = RefInt;
+                Log.Info("Connected to the Database");
 
-                com.CommandText = $"Select BasketId from {RESTNancyModule.TableName} WHERE RefInt = RefInt";
+                // create and configure a new command 
+                SqlCommand com = new SqlCommand(
+                    "select KioskRefInt, KioskID, CheckBasketOrderID, CheckBasketSubTotal from iOrderBasket where KioskRefInt = @kioskRefInt and KioskId = @kioskID",
+                    con);
 
-                // Execute the command and cast the result.
+                // Create SqlParameter objects 
+                SqlParameter p1 = com.CreateParameter();
+                p1.ParameterName = "@kioskRefInt";
+                p1.SqlDbType = SqlDbType.Int;
+                p1.Value = Convert.ToInt32(KioskRefInt);
+                com.Parameters.Add(p1);
 
-                 orderId = (string)com.ExecuteScalar();
+                SqlParameter p2 = com.CreateParameter();
+                p2.ParameterName = "@kioskId";
+                p2.SqlDbType = SqlDbType.Int;
+                p2.Value = Convert.ToInt32(kioskId);
+                com.Parameters.Add(p2);
 
-                Log.Info("OrderId: {0}", orderId);
+                var reader = com.ExecuteReader();
+
+                // Execute the command and process the results
+                while (reader.Read())
+                {
+                    orderBasket.KioskRefInt = Int64.Parse(reader["KioskRefInt"].ToString());
+                    orderBasket.KioskID = int.Parse(reader["KioskID"].ToString());
+                    orderBasket.CheckBasketOrderID = reader["CheckBasketOrderID"].ToString();
+                    orderBasket.CheckBasketSubTotal = int.Parse(reader["CheckBasketSubTotal"].ToString());
+                }
 
             }
 
-            return orderId;
+           return orderBasket;
         }
      }
-   }
+
+        public class AKDiOrderBasket
+        {
+            public int ID { get; set; }
+
+            public long? KioskRefInt { get; set; }
+
+            public int? KioskID { get; set; }
+
+            public string CheckBasketOrderID { get; set; }
+
+            public int? CheckBasketSubTotal { get; set; }
+
+        }
+
+
+}
 

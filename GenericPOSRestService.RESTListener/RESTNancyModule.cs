@@ -449,7 +449,6 @@ namespace GenericPOSRestService.RESTListener
             }
             if (request.DOTOrder.FunctionNumber == FunctionNumber.EXT_COMPLETE_ORDER)
             {
-                //TODO build the Paid Order to Zonal form 
                 // send the response to I-Order PlacePaidOrder get the response and update it 
                 // to the Acrelec response
 
@@ -474,7 +473,6 @@ namespace GenericPOSRestService.RESTListener
             return response;
         }
 
-       
 
         /// <summary>Call the POS for TestDiag method</summary>
         /// <param name="cultureName">The culture name</param>
