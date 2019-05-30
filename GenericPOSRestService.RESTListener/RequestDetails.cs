@@ -5,8 +5,12 @@ namespace GenericPOSRestService.RESTListener
 {
     public class RequestDetails
     {
+        /// <summary>
+        /// Details for the header
+        /// </summary>
+        /// <param name="client"></param>
+        /// <param name="request"></param>
         public void HeaderInformation(out RestClient client, out RestRequest request)
-
         {
 
             client = new RestClient(RESTNancyModule.OrderUrl);

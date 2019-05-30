@@ -30,8 +30,8 @@ namespace GenericPOSRestService.RESTListener
         /// Run stored Procedures
         ///     1- you call add parent item for each meal deal or stand alone product for a meal deal 
         //      2 -  you then have to call add component item twice
-        //      once for the drink
-        //      once for the side
+        //           . once for the drink
+        //           . once for the side
         //      if the drink has a modifier, you have to call add component modifier
         //      with the id of the component you are adding the modifier to
         /// </summary>
@@ -126,14 +126,12 @@ namespace GenericPOSRestService.RESTListener
 
             com.CommandType = CommandType.StoredProcedure;
             com.CommandText = "iOrderBasketAdd";
-         
 
             SqlParameter p1 = com.CreateParameter();
             p1.ParameterName = "@kioskRefInt";
             p1.SqlDbType = SqlDbType.Int;
             p1.Value = refInt;
             com.Parameters.Add(p1);
-
         
             SqlParameter p2 = com.CreateParameter();
             p2.ParameterName = "@kioskID";
@@ -147,13 +145,11 @@ namespace GenericPOSRestService.RESTListener
             p3.Value = checkBasketOrderId;
             com.Parameters.Add(p3);
 
-
             SqlParameter p4 = com.CreateParameter();
             p4.ParameterName = "@checkBasketSubTotal ";
             p4.SqlDbType = SqlDbType.BigInt;
             p4.Value = checkBasketSubTotal;
             com.Parameters.Add(p4);
-
 
             var jsonResult = new StringBuilder();
             int basketId = 0;       

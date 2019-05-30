@@ -20,17 +20,10 @@ namespace GenericPOSRestService.RESTListener
         RequestDetails details;
         CallStoredProc storedProcs;
 
-        static string checkBasketId = string.Empty;
-        static string subTotal = string.Empty;
-
-
         public ZonalWrapper()
         {
             details = new RequestDetails();
             storedProcs = new CallStoredProc();
-
-            checkBasketId = string.Empty;
-            subTotal = string.Empty;
         }
 
         /// <summary>
@@ -81,44 +74,11 @@ namespace GenericPOSRestService.RESTListener
             //get the header details
             details.HeaderInformation(out client, out request);
 
-            //string checkBasketStr = "{\"request\": {\"method\":\"checkBasket\"," +
-            //     "\"bundleIdentifier\" : " +
-            //     "\"Acrelec\"" +
-            //     ", \"userDeviceIdentifier\" : " +
-            //     orderRequest.DOTOrder.Kiosk +
-            //     ", \"platform\" : " + "\"" + RESTNancyModule.Platform + "\"" +
-            //    ", \"siteId\": " +
-            //    RESTNancyModule.SiteId + ", " +
-            //     "\"salesAreaId\" : " +
-            //    RESTNancyModule.SalesAreaId +
-            //    ", \"ServiceId\" : " +
-            //     1 +
-            //    ", \"lines\" : [{" +
-            //     "\"IngredientId\" : " +
-            //    orderRequest.DOTOrder.Items[0].ID +
-            //     ", \"portionTypeId\" : " +
-            //     1 +
-            //     ", \"displayRecordId\" : " +
-            //      178284 +
-            //     ", \"quantity\" : " +
-            //        1 +
-            //     ", \"courseId\" : " +
-            //         123 +
-            //     ", \"menuId\" : " +
-            //      RESTNancyModule.MenuId +
-            //    "}]" +
-            //    "}" +
-            //    "}";
-
             //execute the check basket request
-           // request.AddParameter("request", checkBasketStr);
             request.AddParameter("request", payLoad);
-
 
             //generate the response
             IRestResponse response = client.Execute(request);
-
-            // string basketStr = JsonConvert.SerializeObject(response.Content, Formatting.Indented);
 
             //prepare the class for conversion
             dynamic basketData = JsonConvert.DeserializeObject<dynamic>(response.Content);
@@ -134,7 +94,6 @@ namespace GenericPOSRestService.RESTListener
 
             orderResponse.OrderCreateResponse.Order.OrderID = basketData.basketId;
           
-
             //check order ID is not empty or Null
             if (string.IsNullOrEmpty(orderResponse.OrderCreateResponse.Order.OrderID))
             {
@@ -144,7 +103,7 @@ namespace GenericPOSRestService.RESTListener
             }
             else
             {
-
+                //open a connection
                 using (SqlConnection con = new SqlConnection())
                 {
                     // Configure the SqlConnection object
@@ -156,11 +115,6 @@ namespace GenericPOSRestService.RESTListener
                     storedProcs.IOrderBasketAdd(con, Convert.ToInt32(orderRequest.DOTOrder.RefInt), orderRequest.DOTOrder.Kiosk, orderResponse.OrderCreateResponse.Order.OrderID, orderResponse.OrderCreateResponse.Order.Totals.AmountDue);
                 }
                 Log.Info("Disconnected from the Database");
-
-                //TODO call the CheckBasket Store Procedure to get checkBasket Json string.
-                //Log.Info("Get CheckBasket string from Database");
-                //ExecuteNonQueryExample(orderResponse.OrderCreateResponse.Order.OrderID, orderResponse.OrderCreateResponse.Order.RefInt);
-
             }
 
             return orderResponse;
@@ -229,7 +183,6 @@ namespace GenericPOSRestService.RESTListener
         }
 
 
-
         /// <summary>
         /// Use to return/store Basket/OrderID from a table for the stored order after a Function 33 
         /// and use the values for a Function 3  
@@ -281,7 +234,9 @@ namespace GenericPOSRestService.RESTListener
            return orderBasket;
         }
      }
-
+        /// <summary>
+        /// Items returned from the IOrderBasket
+        /// </summary>
         public class AKDiOrderBasket
         {
             public int ID { get; set; }

@@ -421,10 +421,6 @@ namespace GenericPOSRestService.RESTListener
             if ((request.DOTOrder.Location == Location.EatIn) && (request.DOTOrder.TableServiceNumber != null))
                 request.DOTOrder.tableNo = Convert.ToInt32(request.DOTOrder.TableServiceNumber);
 
-            //TODO remove just for testing
-            //string requestStr = JsonConvert.SerializeObject(request.DOTOrder);
-            //File.WriteAllText("C:\\Test\\RequestString.txt", requestStr);
-
 
             //load the API Settings to use
             LoadAPIUrls();
@@ -441,7 +437,6 @@ namespace GenericPOSRestService.RESTListener
                 string payLoad = iOrderCheckBasket(basketId);
 
                 //remove formatting
-                //payLoad = payLoad.Replace(@"\", string.Empty);
                 payLoad = payLoad.Remove(0, 9); // remove " from beginning 
 
                 response = wrapper.CheckBasket(request, response, payLoad);
@@ -567,7 +562,7 @@ namespace GenericPOSRestService.RESTListener
                 Log.Info("Connected to the Database for CheckBasket");
 
                 // 1) call the iOrderCheckBasket stored proc get the Id for the new Basket
-
+                //
                 // create and configure a new command 
                 SqlCommand comm = conn.CreateCommand();
 
@@ -580,8 +575,6 @@ namespace GenericPOSRestService.RESTListener
                 p1.SqlDbType = SqlDbType.Int;
                 p1.Value = basketId;
                 comm.Parameters.Add(p1);
-
-          
 
                 var jsonResult = new StringBuilder();
 
