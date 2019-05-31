@@ -58,14 +58,24 @@ namespace GenericPOSRestService.RESTListener
                 // 1) call the iOrderBasketAdd stored proc get the Id for the new Basket
                 basketId = IOrderBasketAdd(con, Convert.ToInt32(request.DOTOrder.RefInt), request.DOTOrder.Kiosk, string.Empty, 0);
 
-                int num = request.DOTOrder.Items.Count;
+                //check for multiple quantities
+                long qtyCheck = ((request.DOTOrder.Items.Count) * (request.DOTOrder.Items[0].Qty));
                 int numOfItemsInParent = request.DOTOrder.Items[0].Items.Count;
                  
                 parentId = Convert.ToInt64(request.DOTOrder.Items[0].ID);  //long 1d of the item
                 parentQty = Convert.ToInt32(request.DOTOrder.Items[0].Qty);
 
+                // The quantity of the main Parent item
+                //int num = request.DOTOrder.Items.Count;
+
+                //if (request.DOTOrder.Items.Count > 1)
+                //{
+                //    //check we have multiple quantities
+
+                //}
+
                 //load the main item with the parent item
-                parentItemId = iOrderBasketAddParentItem(con, basketId, parentQty, parentId);
+                parentItemId = iOrderBasketAddParentItem(con, basketId, Convert.ToInt32(qtyCheck), parentId);
 
                 //if item is a single Item and not a meal but has a modifier run the iOrderBasketAddParentModifier
                 //
@@ -73,7 +83,7 @@ namespace GenericPOSRestService.RESTListener
                 if(request.DOTOrder.Items[0].Items.Count == 1)
                 {
                     //load the main item with the parent item
-                    IOrderBasketAddParentModifier(con, parentId, parentQty, parentItemId);
+                    IOrderBasketAddParentModifier(con, parentId, Convert.ToInt32(qtyCheck), parentItemId);
                 }
 
                 if ((numOfItemsInParent != 0) && (count < 2)) //a meal or main item has other items loop through

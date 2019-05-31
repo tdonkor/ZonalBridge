@@ -87,14 +87,23 @@ namespace GenericPOSRestService.RESTListener
             orderResponse.OrderCreateResponse.Order.RefInt = orderRequest.DOTOrder.RefInt;
 
             //remove decimal point from total returned and put in the response Amount due.
-            string AmountDue = Convert.ToString(basketData.basketTotal);
+            string AmountDue = Convert.ToString((basketData.basketTotal) * 100);
 
             string AmountDueWithoutDecimal = AmountDue.Replace(".", string.Empty);
             orderResponse.OrderCreateResponse.Order.Totals.AmountDue = Convert.ToInt64(AmountDueWithoutDecimal);
 
+            //check for a discount
+            //int total = 0;
+
+            //for (int i = 0; i < basketData.lines[i].count; i++)
+            //{
+            //    total += Convert.ToInt64(basketData.lines[i].amount);
+            //}
+
+
             orderResponse.OrderCreateResponse.Order.OrderID = basketData.basketId;
-          
-            //check order ID is not empty or Null
+
+            //check order ID is not empty or Nul
             if (string.IsNullOrEmpty(orderResponse.OrderCreateResponse.Order.OrderID))
             {
                 orderResponse.OrderCreateResponse.Order.Reason = basketData.response;
@@ -202,7 +211,7 @@ namespace GenericPOSRestService.RESTListener
 
                 // create and configure a new command 
                 SqlCommand com = new SqlCommand(
-                    "select KioskRefInt, KioskID, CheckBasketOrderID, CheckBasketSubTotal from iOrderBasket where KioskRefInt = @kioskRefInt and KioskId = @kioskID",
+                    $"select KioskRefInt, KioskID, CheckBasketOrderID, CheckBasketSubTotal from {RESTNancyModule.TableName} where KioskRefInt = @kioskRefInt and KioskId = @kioskID",
                     con);
 
                 // Create SqlParameter objects 
