@@ -92,15 +92,6 @@ namespace GenericPOSRestService.RESTListener
             string AmountDueWithoutDecimal = AmountDue.Replace(".", string.Empty);
             orderResponse.OrderCreateResponse.Order.Totals.AmountDue = Convert.ToInt64(AmountDueWithoutDecimal);
 
-            //check for a discount
-            //int total = 0;
-
-            //for (int i = 0; i < basketData.lines[i].count; i++)
-            //{
-            //    total += Convert.ToInt64(basketData.lines[i].amount);
-            //}
-
-
             orderResponse.OrderCreateResponse.Order.OrderID = basketData.basketId;
 
             //check order ID is not empty or Nul
