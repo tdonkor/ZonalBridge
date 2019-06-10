@@ -149,7 +149,6 @@ namespace GenericPOSRestService.RESTListener
               ", \"platform\" : " + "\"" + RESTNancyModule.Platform + "\"" +
            "}}";
 
-            // File.WriteAllText("C:\\temp\\Tester.json", paidOrderStr);
 
             //execute the paidOrder
             request.AddParameter("request", paidOrderStr);

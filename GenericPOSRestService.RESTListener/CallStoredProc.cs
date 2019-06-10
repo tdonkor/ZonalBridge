@@ -10,7 +10,7 @@ namespace GenericPOSRestService.RESTListener
     public class CallStoredProc
     {
         OrderCreateRequest request;
-        long parentId = 0;
+        long menuParentId = 0;
         static int count = 0;
 
         public CallStoredProc(OrderCreateRequest request)
@@ -40,11 +40,16 @@ namespace GenericPOSRestService.RESTListener
             int basketId = 0;  //Id of the current transaction
             int parentItemId = 0; //value of the rows ID value
 
-            int itemQty = 0;
-            long itemId = 0;
+            int numOfItems = 0;
 
-            int parentQty = 0;
+            int itemQty = 0; 
+            long itemId = 0; 
+
+          //  int parentQty = 0;
             int componentId = 0;
+
+         //   long qtyCheck = 0;
+            
 
 
             // Create a new SqlConnection object
@@ -58,59 +63,169 @@ namespace GenericPOSRestService.RESTListener
                 // 1) call the iOrderBasketAdd stored proc get the Id for the new Basket
                 basketId = IOrderBasketAdd(con, Convert.ToInt32(request.DOTOrder.RefInt), request.DOTOrder.Kiosk, string.Empty, 0);
 
-                //check for multiple quantities multiply with the quantity for the parent
-                long qtyCheck = ((request.DOTOrder.Items.Count) * (request.DOTOrder.Items[0].Qty));
-                int numOfItemsInParent = request.DOTOrder.Items[0].Items.Count;
-                 
-                // Id and quantity of parent
-                parentId = Convert.ToInt64(request.DOTOrder.Items[0].ID);  //long 1d of the parent item
-                parentQty = Convert.ToInt32(request.DOTOrder.Items[0].Qty); //the quantity of parent Items
+                //2) check how may items there are in the request
+                numOfItems = request.DOTOrder.Items.Count;
 
- 
-                //load the main item with the parent item
-                parentItemId = iOrderBasketAddParentItem(con, basketId, Convert.ToInt32(qtyCheck), parentId);
-
-                //if item is a single Item and not a meal but has a modifier run the iOrderBasketAddParentModifier
-                //
-                // if ((request.DOTOrder.Items[0].IsMenu == false) && (request.DOTOrder.Items[0].Items.Count > 0))
-                if(request.DOTOrder.Items[0].Items.Count == 1) 
+                //loop through each item and process as appropriate
+                for (int i = 0; i < (numOfItems); i++)
                 {
-                    //load the main item with the parent item ID  and the modifier URN
-                    IOrderBasketAddParentModifier(con, Convert.ToInt64(request.DOTOrder.Items[0].Items[0].ID), Convert.ToInt32(qtyCheck), parentItemId);
-                }
+                    // Id and quantity of item
+                    itemId = Convert.ToInt64(request.DOTOrder.Items[i].ID);  //long 1d of the item
+                    itemQty = Convert.ToInt32(request.DOTOrder.Items[i].Qty); //the quantity of theItem
 
-                if ((numOfItemsInParent != 0) && (count < 2)) //a meal or main item has other items loop through
-                { 
-                    for (int i = 0; i < numOfItemsInParent-1; i++) 
+                    //load the main item with the parent item or a single Item
+                    parentItemId = IOrderBasketAddParentItem(con, basketId, Convert.ToInt32(itemQty), itemId);
+                 
+
+                    //if item is a single Item and not a meal but has a modifier run the iOrderBasketAddParentModifier
+                    if (request.DOTOrder.Items[i].Items.Count == 1)
                     {
-                        // first item is a drink
-                            itemId = Convert.ToInt64(request.DOTOrder.Items[0].Items[i].ID);
-                            itemQty = Convert.ToInt32(request.DOTOrder.Items[0].Items[i].Qty);
+                        //load the main item with the parent item ID  and the modifier URN
+                        IOrderBasketAddParentModifier(con, Convert.ToInt64(request.DOTOrder.Items[i].Items[0].ID), Convert.ToInt32(itemQty), parentItemId);
+                    }
 
-                        // 2) call the iOrderBasketAddParentItem stored procedure for
-               
-                        if ((request.DOTOrder.Items[0].IsMenu == true) && (itemId != parentId))
+                    if (request.DOTOrder.Items[i].Items.Count == 3) // this is 20 dips and 3 modifiers
+                    {
+                        //load the main item with the parent item ID and the modifier URN
+                        for (int j = 0; j < 3; j++)
+                            IOrderBasketAddParentModifier(con, Convert.ToInt64(request.DOTOrder.Items[i].Items[j].ID), Convert.ToInt32(request.DOTOrder.Items[i].Items[j].Qty), parentItemId);
+                        break;
+                    }
+
+                    //Check for a meal with 2 sides i.e drink and Fries
+                    int numOfItemsInParent = request.DOTOrder.Items[i].Items.Count;
+
+                    if ((numOfItemsInParent != 0) && (count < 2)) //a meal or main item has other items loop through
+                    {
+                        menuParentId = Convert.ToInt64(request.DOTOrder.Items[0].ID);  //long 1d of the parent item
+
+                        for (int k = 0; k < (numOfItemsInParent-1); k++)
                         {
+                            itemId = Convert.ToInt64(request.DOTOrder.Items[i].Items[k].ID);
+                            itemQty = Convert.ToInt32(request.DOTOrder.Items[i].Items[k].Qty);
 
-                            if (count < 2)
+                            // 2) call the iOrderBasketAddParentItem stored procedure for
+
+                            if ((request.DOTOrder.Items[0].IsMenu == true) && (itemId != menuParentId))
                             {
-                                //Drinks always first
-                                componentId = 0;
-
-                                componentId =  IOrderBasketAddComponentItem(con, itemQty, parentItemId, itemId, componentId);
-
-                                //check for a modifier
-                                if ((request.DOTOrder.Items[0].Items[i].Items.Count) > 0)
+                                //drink and side
+                                if (count < 2)
                                 {
-                                    long componentModifierId = Convert.ToInt64(request.DOTOrder.Items[0].Items[i].Items[0].ID);
+                                    componentId = 0;
 
-                                    IOrderBasketAddComponentModifier(con, itemQty, parentItemId, componentModifierId, componentId);
+                                    //set the component Id to be used for the modifier
+                                    componentId = IOrderBasketAddComponentItem(con, itemQty, parentItemId, itemId, componentId);
+
+                                    //check for a modifier
+                                    if ((request.DOTOrder.Items[i].Items[k].Items.Count) > 0)
+                                    {
+                                        long componentModifierId = Convert.ToInt64(request.DOTOrder.Items[i].Items[k].Items[0].ID);
+
+                                        IOrderBasketAddComponentModifier(con, itemQty, parentItemId, componentModifierId, componentId);
+                                    }
+                                    count++;
                                 }
-                                count++;
                             }
                         }
                     }
+
                 }
+
+
+                //check for multiple quantities of the same parent item multiply with the quantity for the parent
+                //if (request.DOTOrder.Items.Count > 1)
+                //{
+                //    bool equalItems = true;
+                //    count = 0;
+
+                //    //check each Id is the same 
+                //    for (int i = 0; i < (request.DOTOrder.Items.Count); i++)
+                //    {
+                //        if (request.DOTOrder.Items[0].ID != request.DOTOrder.Items[i].ID)
+                //        {
+                //            equalItems = false;
+                //        }
+                //        else
+                //        {
+                //            count++;
+                //        }
+                //    }
+                //    if (equalItems == true)
+                //        qtyCheck = ((request.DOTOrder.Items.Count) * (request.DOTOrder.Items[0].Qty));
+                //    else
+                //    {
+                //        for (int i = 0; i < request.DOTOrder.Items.Count; i++)
+                //        {
+                //            parentItemId = iOrderBasketAddParentItem(con, basketId, Convert.ToInt32(request.DOTOrder.Items[i].Qty), Convert.ToInt64(request.DOTOrder.Items[i].ID));
+
+                //        }
+                //        qtyCheck = count;
+                //    }
+
+                //}
+                //else
+                //    qtyCheck = request.DOTOrder.Items.Count;
+
+
+
+                // Id and quantity of parent
+                //parentId = Convert.ToInt64(request.DOTOrder.Items[0].ID);  //long 1d of the parent item
+                //parentQty = Convert.ToInt32(request.DOTOrder.Items[0].Qty); //the quantity of parent Items
+
+
+                //checkParentItemId is not set
+                //if (parentItemId )
+                //load the main item with the parent item or a single Item
+                // parentItemId = iOrderBasketAddParentItem(con, basketId, Convert.ToInt32(qtyCheck), parentId);
+
+                //if item is a single Item and not a meal but has a modifier run the iOrderBasketAddParentModifier
+                //if (request.DOTOrder.Items[0].Items.Count == 1) 
+                //{
+                //    //load the main item with the parent item ID  and the modifier URN
+                //    IOrderBasketAddParentModifier(con, Convert.ToInt64(request.DOTOrder.Items[0].Items[0].ID), Convert.ToInt32(qtyCheck), parentItemId);
+                //}
+
+                //if (request.DOTOrder.Items[0].Items.Count == 3) // this is 20 dips and 3 modifiers
+                //{
+                //    //load the main item with the parent item ID and the modifier URN
+                //    for (int i = 0; i < 3; i++)
+                //        IOrderBasketAddParentModifier(con, Convert.ToInt64(request.DOTOrder.Items[0].Items[i].ID), Convert.ToInt32(qtyCheck), parentItemId);
+                //}
+
+                ////Check for a meal with 2 sides i.e drink and Fries
+                //int numOfItemsInParent = request.DOTOrder.Items[0].Items.Count;
+                
+                //if ((numOfItemsInParent != 0) && (count < 2)) //a meal or main item has other items loop through
+                //{ 
+                //    for (int i = 0; i < numOfItemsInParent-1; i++) 
+                //    {
+                //            itemId = Convert.ToInt64(request.DOTOrder.Items[0].Items[i].ID);
+                //            itemQty = Convert.ToInt32(request.DOTOrder.Items[0].Items[i].Qty);
+
+                //        // 2) call the iOrderBasketAddParentItem stored procedure for
+               
+                //        if ((request.DOTOrder.Items[0].IsMenu == true) && (itemId != parentId))
+                //        {
+                //            //drink and side
+                //            if (count < 2)
+                //            {
+                //                componentId = 0;
+
+                //                //set the component Id to be used for the modifier
+                //                componentId =  IOrderBasketAddComponentItem(con, itemQty, parentItemId, itemId, componentId);
+
+                //                //check for a modifier
+                //                if ((request.DOTOrder.Items[0].Items[i].Items.Count) > 0)
+                //                {
+                //                    long componentModifierId = Convert.ToInt64(request.DOTOrder.Items[0].Items[i].Items[0].ID);
+
+                //                    IOrderBasketAddComponentModifier(con, itemQty, parentItemId, componentModifierId, componentId);
+                //                }
+                //                count++;
+                //            }
+                //        }
+                //    }
+                //}
              
 
                 Log.Info("Disconnected from the Database");
@@ -184,7 +299,7 @@ namespace GenericPOSRestService.RESTListener
         /// </summary>
         /// <param name="con"></param>
         /// <returns>result from Stored procedure</returns>
-        public int iOrderBasketAddParentItem(SqlConnection con, int basketId, int itemQty, long itemId)
+        public int IOrderBasketAddParentItem(SqlConnection con, int basketId, int itemQty, long itemId)
         {
                 if (basketId < 1)
                 {
