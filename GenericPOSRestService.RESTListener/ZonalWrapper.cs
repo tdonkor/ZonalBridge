@@ -64,7 +64,7 @@ namespace GenericPOSRestService.RESTListener
         }
 
         /// <summary>
-        /// Runs the CheckBasket API returns the response from the IOrder CheckBasket API
+        /// Runs the CheckBasket API which returns the response from the IOrder CheckBasket API
         /// </summary>
         /// <param name="orderRequest"></param>
         /// <param name="orderResponse"></param>
@@ -121,7 +121,7 @@ namespace GenericPOSRestService.RESTListener
         }
 
         /// <summary>
-        /// Runs the PlacePaidOrder API returns the response from the IOrder PlacePaidOrder API
+        /// Runs the PlacePaidOrder API which returns the response from the IOrder PlacePaidOrder API
         /// </summary>
         /// <param name="orderRequest"></param>
         /// <param name="orderResponse"></param>

@@ -27,30 +27,17 @@ namespace GenericPOSRestService.RESTListener
 
         /// <summary>
         /// Connect to the database 
-        /// Run stored Procedures
-        ///     1- you call add parent item for each meal deal or stand alone product for a meal deal 
-        //      2 -  you then have to call add component item twice
-        //           . once for the drink
-        //           . once for the side
-        //      if the drink has a modifier, you have to call add component modifier
-        //      with the id of the component you are adding the modifier to
+        /// Run stored Procedures depending on what the items are
         /// </summary>
         public int StoredProcs()
         {
-            int basketId = 0;  //Id of the current transaction
-            int parentItemId = 0; //value of the rows ID value
-
-            int numOfItems = 0;
-
-            int itemQty = 0; 
-            long itemId = 0; 
-
-          //  int parentQty = 0;
+            int basketId = 0;            // Id of the current transaction
+            int parentItemId = 0;        // value of the rows ID value
+            int numOfItems = 0;          // Items in the order
+            int numOfParentModItems = 0; // Number of Parent Modifier items
+            int itemQty = 0;             //item Quantity
+            long itemId = 0;             // Item Id
             int componentId = 0;
-
-         //   long qtyCheck = 0;
-            
-
 
             // Create a new SqlConnection object
             using (SqlConnection con = new SqlConnection())
@@ -60,31 +47,39 @@ namespace GenericPOSRestService.RESTListener
                 con.Open();
                 Log.Info("Connected to the Database");
 
-                // 1) call the iOrderBasketAdd stored proc get the Id for the new Basket
+                // 1) call the iOrderBasketAdd stored proc get the Id for the new Basket- this must be called first for a 
+                //    new transaction
                 basketId = IOrderBasketAdd(con, Convert.ToInt32(request.DOTOrder.RefInt), request.DOTOrder.Kiosk, string.Empty, 0);
 
-                //2) check how may items there are in the request
+                // 2) check how may items there are in the request
                 numOfItems = request.DOTOrder.Items.Count;
 
-                //loop through each item and process as appropriate
+                Log.Info($"The order has {numOfItems} item(s)");
+
+                // 3) loop through each item and process each item as appropriate
+               
+
                 for (int i = 0; i < (numOfItems); i++)
                 {
-                    // Id and quantity of item
+                    // Get the Id and quantity of each item
                     itemId = Convert.ToInt64(request.DOTOrder.Items[i].ID);  //long 1d of the item
                     itemQty = Convert.ToInt32(request.DOTOrder.Items[i].Qty); //the quantity of theItem
 
-                    //load the main item with the parent item or a single Item
-                    parentItemId = IOrderBasketAddParentItem(con, basketId, Convert.ToInt32(itemQty), itemId);
-                 
 
-                    //if item is a single Item and not a meal but has a modifier run the iOrderBasketAddParentModifier
+                    // i) you call add parent item for each meal deal or Single product then use the if statements for further processing 
+                    //  
+                    parentItemId = IOrderBasketAddParentItem(con, basketId, Convert.ToInt32(itemQty), itemId);
+
+                    
+                    //if item is a single Item and has a modifier run the iOrderBasketAddParentModifier
                     if (request.DOTOrder.Items[i].Items.Count == 1)
                     {
                         //load the main item with the parent item ID  and the modifier URN
                         IOrderBasketAddParentModifier(con, Convert.ToInt64(request.DOTOrder.Items[i].Items[0].ID), Convert.ToInt32(itemQty), parentItemId);
                     }
 
-                    if (request.DOTOrder.Items[i].Items.Count == 3) // this is 20 dips and 3 modifiers
+                    // this is the check for 20 dips and 3 modifiers
+                    if (request.DOTOrder.Items[i].Items.Count == 3) 
                     {
                         //load the main item with the parent item ID and the modifier URN
                         for (int j = 0; j < 3; j++)
@@ -92,10 +87,11 @@ namespace GenericPOSRestService.RESTListener
                         break;
                     }
 
-                    //Check for a meal with 2 sides i.e drink and Fries
+                    //Check for a meal with 2 sides i.e drink and Fries which are components
                     int numOfItemsInParent = request.DOTOrder.Items[i].Items.Count;
 
-                    if ((numOfItemsInParent != 0) && (count < 2)) //a meal or main item has other items loop through
+                    //If a meal or main item has other components loop through
+                    if ((numOfItemsInParent != 0) && (count < 2)) 
                     {
                         menuParentId = Convert.ToInt64(request.DOTOrder.Items[0].ID);  //long 1d of the parent item
 
@@ -104,8 +100,8 @@ namespace GenericPOSRestService.RESTListener
                             itemId = Convert.ToInt64(request.DOTOrder.Items[i].Items[k].ID);
                             itemQty = Convert.ToInt32(request.DOTOrder.Items[i].Items[k].Qty);
 
-                            // 2) call the iOrderBasketAddParentItem stored procedure for
-
+                            //we don't want to check whether the Parent is a Component so just ignore it
+                            //check it is a meal
                             if ((request.DOTOrder.Items[0].IsMenu == true) && (itemId != menuParentId))
                             {
                                 //drink and side
@@ -116,11 +112,10 @@ namespace GenericPOSRestService.RESTListener
                                     //set the component Id to be used for the modifier
                                     componentId = IOrderBasketAddComponentItem(con, itemQty, parentItemId, itemId, componentId);
 
-                                    //check for a modifier
+                                    //check if the component has a modifier
                                     if ((request.DOTOrder.Items[i].Items[k].Items.Count) > 0)
                                     {
                                         long componentModifierId = Convert.ToInt64(request.DOTOrder.Items[i].Items[k].Items[0].ID);
-
                                         IOrderBasketAddComponentModifier(con, itemQty, parentItemId, componentModifierId, componentId);
                                     }
                                     count++;
@@ -130,103 +125,6 @@ namespace GenericPOSRestService.RESTListener
                     }
 
                 }
-
-
-                //check for multiple quantities of the same parent item multiply with the quantity for the parent
-                //if (request.DOTOrder.Items.Count > 1)
-                //{
-                //    bool equalItems = true;
-                //    count = 0;
-
-                //    //check each Id is the same 
-                //    for (int i = 0; i < (request.DOTOrder.Items.Count); i++)
-                //    {
-                //        if (request.DOTOrder.Items[0].ID != request.DOTOrder.Items[i].ID)
-                //        {
-                //            equalItems = false;
-                //        }
-                //        else
-                //        {
-                //            count++;
-                //        }
-                //    }
-                //    if (equalItems == true)
-                //        qtyCheck = ((request.DOTOrder.Items.Count) * (request.DOTOrder.Items[0].Qty));
-                //    else
-                //    {
-                //        for (int i = 0; i < request.DOTOrder.Items.Count; i++)
-                //        {
-                //            parentItemId = iOrderBasketAddParentItem(con, basketId, Convert.ToInt32(request.DOTOrder.Items[i].Qty), Convert.ToInt64(request.DOTOrder.Items[i].ID));
-
-                //        }
-                //        qtyCheck = count;
-                //    }
-
-                //}
-                //else
-                //    qtyCheck = request.DOTOrder.Items.Count;
-
-
-
-                // Id and quantity of parent
-                //parentId = Convert.ToInt64(request.DOTOrder.Items[0].ID);  //long 1d of the parent item
-                //parentQty = Convert.ToInt32(request.DOTOrder.Items[0].Qty); //the quantity of parent Items
-
-
-                //checkParentItemId is not set
-                //if (parentItemId )
-                //load the main item with the parent item or a single Item
-                // parentItemId = iOrderBasketAddParentItem(con, basketId, Convert.ToInt32(qtyCheck), parentId);
-
-                //if item is a single Item and not a meal but has a modifier run the iOrderBasketAddParentModifier
-                //if (request.DOTOrder.Items[0].Items.Count == 1) 
-                //{
-                //    //load the main item with the parent item ID  and the modifier URN
-                //    IOrderBasketAddParentModifier(con, Convert.ToInt64(request.DOTOrder.Items[0].Items[0].ID), Convert.ToInt32(qtyCheck), parentItemId);
-                //}
-
-                //if (request.DOTOrder.Items[0].Items.Count == 3) // this is 20 dips and 3 modifiers
-                //{
-                //    //load the main item with the parent item ID and the modifier URN
-                //    for (int i = 0; i < 3; i++)
-                //        IOrderBasketAddParentModifier(con, Convert.ToInt64(request.DOTOrder.Items[0].Items[i].ID), Convert.ToInt32(qtyCheck), parentItemId);
-                //}
-
-                ////Check for a meal with 2 sides i.e drink and Fries
-                //int numOfItemsInParent = request.DOTOrder.Items[0].Items.Count;
-                
-                //if ((numOfItemsInParent != 0) && (count < 2)) //a meal or main item has other items loop through
-                //{ 
-                //    for (int i = 0; i < numOfItemsInParent-1; i++) 
-                //    {
-                //            itemId = Convert.ToInt64(request.DOTOrder.Items[0].Items[i].ID);
-                //            itemQty = Convert.ToInt32(request.DOTOrder.Items[0].Items[i].Qty);
-
-                //        // 2) call the iOrderBasketAddParentItem stored procedure for
-               
-                //        if ((request.DOTOrder.Items[0].IsMenu == true) && (itemId != parentId))
-                //        {
-                //            //drink and side
-                //            if (count < 2)
-                //            {
-                //                componentId = 0;
-
-                //                //set the component Id to be used for the modifier
-                //                componentId =  IOrderBasketAddComponentItem(con, itemQty, parentItemId, itemId, componentId);
-
-                //                //check for a modifier
-                //                if ((request.DOTOrder.Items[0].Items[i].Items.Count) > 0)
-                //                {
-                //                    long componentModifierId = Convert.ToInt64(request.DOTOrder.Items[0].Items[i].Items[0].ID);
-
-                //                    IOrderBasketAddComponentModifier(con, itemQty, parentItemId, componentModifierId, componentId);
-                //                }
-                //                count++;
-                //            }
-                //        }
-                //    }
-                //}
-             
 
                 Log.Info("Disconnected from the Database");
             }
@@ -345,10 +243,8 @@ namespace GenericPOSRestService.RESTListener
                         jsonResult.Append("[]");
                     }
                     while (reader.Read())
-                    {
-
-                    parentItemId = Convert.ToInt32(reader.GetValue(0));
-
+                    {             
+                        parentItemId = Convert.ToInt32(reader.GetValue(0));
 
                     //Display The details
                     jsonResult.Append(reader.GetValue(0).ToString());

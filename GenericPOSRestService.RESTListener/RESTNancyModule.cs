@@ -434,7 +434,7 @@ namespace GenericPOSRestService.RESTListener
                 int basketId = procs.StoredProcs();
 
                 //run the stored proc iOrderCheckBasket
-                string payLoad = iOrderCheckBasket(basketId);
+                string payLoad = IOrderCheckBasket(basketId);
 
                 //remove formatting
                 payLoad = payLoad.Remove(0, 9); // remove " from beginning 
@@ -549,7 +549,7 @@ namespace GenericPOSRestService.RESTListener
         /// </summary>
         /// <param name="con"></param>
         /// <returns>result from Stored procedure</returns>
-        public static string iOrderCheckBasket(int basketId)
+        public static string IOrderCheckBasket(int basketId)
         {
             string payload = string.Empty;
 
