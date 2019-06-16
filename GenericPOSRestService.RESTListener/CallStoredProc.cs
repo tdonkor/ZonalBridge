@@ -93,7 +93,20 @@ namespace GenericPOSRestService.RESTListener
                     //If a meal or main item has other components loop through
                     if ((numOfItemsInParent != 0) && (count < 2)) 
                     {
-                        menuParentId = Convert.ToInt64(request.DOTOrder.Items[0].ID);  //long 1d of the parent item
+                        menuParentId = Convert.ToInt64(request.DOTOrder.Items[0].ID);  //long id of the parent item
+
+                        //check if parent has any modifiers
+                        numOfParentModItems = request.DOTOrder.Items[i].Items[0].Items.Count;
+
+                        if ((numOfParentModItems > 0) && (request.DOTOrder.Items[i].IsMenu == true)) // it is a meal deal
+                        {
+                            for (int md = 0; md < numOfParentModItems; md++)
+                            {
+                                //load the main item with the parent item ID  and the modifier URN
+                                IOrderBasketAddParentModifier(con, Convert.ToInt64(request.DOTOrder.Items[i].Items[md].Items[0].ID), 1, parentItemId);
+
+                            }
+                        }
 
                         for (int k = 0; k < (numOfItemsInParent-1); k++)
                         {
