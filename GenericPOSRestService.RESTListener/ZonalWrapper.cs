@@ -83,6 +83,12 @@ namespace GenericPOSRestService.RESTListener
             //prepare the class for conversion
             dynamic basketData = JsonConvert.DeserializeObject<dynamic>(response.Content);
 
+            // Test and Log the response 
+            string ChkBasketResp = Convert.ToString(basketData.response);
+
+            if (string.Compare(ChkBasketResp, "Error", true) == 0)
+                Log.Error("Detail:\n " + basketData.detail);
+
             orderResponse.OrderCreateResponse.Order.Kiosk = orderRequest.DOTOrder.Kiosk;
             orderResponse.OrderCreateResponse.Order.RefInt = orderRequest.DOTOrder.RefInt;
 
@@ -94,7 +100,7 @@ namespace GenericPOSRestService.RESTListener
 
             orderResponse.OrderCreateResponse.Order.OrderID = basketData.basketId;
 
-            //check order ID is not empty or Nul
+            //check order ID is not empty or Null
             if (string.IsNullOrEmpty(orderResponse.OrderCreateResponse.Order.OrderID))
             {
                 orderResponse.OrderCreateResponse.Order.Reason = basketData.response;
@@ -109,12 +115,12 @@ namespace GenericPOSRestService.RESTListener
                     // Configure the SqlConnection object
                     con.ConnectionString = RESTNancyModule.ConnectionString;
                     con.Open();
-                    Log.Info("Connected to the Database");
+                    Log.Info("Connected to the Database in CheckBasket");
 
                     //update to the BasketTable.
                     storedProcs.IOrderBasketAdd(con, Convert.ToInt32(orderRequest.DOTOrder.RefInt), orderRequest.DOTOrder.Kiosk, orderResponse.OrderCreateResponse.Order.OrderID, orderResponse.OrderCreateResponse.Order.Totals.AmountDue);
                 }
-                Log.Info("Disconnected from the Database");
+                Log.Info("Disconnected from the Database in CheckBasket");
             }
 
             return orderResponse;
@@ -197,7 +203,7 @@ namespace GenericPOSRestService.RESTListener
                 // Configure the SqlConnection object
                 con.ConnectionString = RESTNancyModule.ConnectionString;
                 con.Open();
-                Log.Info("Connected to the Database");
+                Log.Info("Connected to the Database in GetOrderBasketID");
 
                 // create and configure a new command 
                 SqlCommand com = new SqlCommand(

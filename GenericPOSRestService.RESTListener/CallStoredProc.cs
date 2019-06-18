@@ -11,12 +11,12 @@ namespace GenericPOSRestService.RESTListener
     {
         OrderCreateRequest request;
         long menuParentId = 0;
-        static int count = 0;
+        int count = 0;
 
         public CallStoredProc(OrderCreateRequest request)
         {
             this.request = request;
-            count = 0;
+           
         }
 
         //empty constructor
@@ -65,6 +65,8 @@ namespace GenericPOSRestService.RESTListener
                     itemId = Convert.ToInt64(request.DOTOrder.Items[i].ID);  //long 1d of the item
                     itemQty = Convert.ToInt32(request.DOTOrder.Items[i].Qty); //the quantity of theItem
 
+                    //reset counter
+                    count = 0;
 
                     // i) you call add parent item for each meal deal or Single product then use the if statements for further processing 
                     //  
@@ -93,7 +95,7 @@ namespace GenericPOSRestService.RESTListener
                     //If a meal or main item has other components loop through
                     if ((numOfItemsInParent != 0) && (count < 2)) 
                     {
-                        menuParentId = Convert.ToInt64(request.DOTOrder.Items[0].ID);  //long id of the parent item
+                        menuParentId = Convert.ToInt64(request.DOTOrder.Items[i].ID);  //long id of the parent item
 
                         //check if parent has any modifiers
                         numOfParentModItems = request.DOTOrder.Items[i].Items[0].Items.Count;
@@ -196,9 +198,6 @@ namespace GenericPOSRestService.RESTListener
                 while (reader.Read())
                 {
                     basketId = Convert.ToInt32(reader.GetValue(0));
-
-                    //Log the result
-                    Log.Info($"iOrderBasketAdd output: {basketId}");
                 }
             }
 
@@ -262,7 +261,6 @@ namespace GenericPOSRestService.RESTListener
                     //Display The details
                     jsonResult.Append(reader.GetValue(0).ToString());
 
-                    Log.Info($"iOrderBasketAddParentItem output: {parentItemId}");
                     }
 
                 return parentItemId;
@@ -326,12 +324,9 @@ namespace GenericPOSRestService.RESTListener
                     {
                         component = Convert.ToInt32(reader.GetValue(0));
 
-                        //Log the result
-
                         //Display The details
                         jsonResult.Append(reader.GetValue(0).ToString());
-
-                        Log.Info($"IOrderBasketAddComponentItem output: {component}");
+                       
                     }
                 }
 
@@ -394,12 +389,9 @@ namespace GenericPOSRestService.RESTListener
                 {
                     int modifier = Convert.ToInt32(reader.GetValue(0));
 
-                    //Log the result
-
                     //Display The details
                     jsonResult.Append(reader.GetValue(0).ToString());
 
-                    Log.Info($"IOrderBasketAddComponentModifier output: {modifier}");
                 }
             }
 
@@ -460,7 +452,6 @@ namespace GenericPOSRestService.RESTListener
                     //Display The details
                     jsonResult.Append(reader.GetValue(0).ToString());
 
-                    Log.Info($"IOrderBasketAddParentModifier output: {parentModifier}");
                 }
             }
         }

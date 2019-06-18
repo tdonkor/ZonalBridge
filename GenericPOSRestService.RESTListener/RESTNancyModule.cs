@@ -436,9 +436,6 @@ namespace GenericPOSRestService.RESTListener
                 //run the stored proc iOrderCheckBasket
                 string payLoad = IOrderCheckBasket(basketId);
 
-                //remove formatting
-                payLoad = payLoad.Remove(0, 9); // remove " from beginning 
-
                 response = wrapper.CheckBasket(request, response, payLoad);
 
             }
