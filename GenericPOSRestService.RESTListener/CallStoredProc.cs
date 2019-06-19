@@ -80,11 +80,13 @@ namespace GenericPOSRestService.RESTListener
                         IOrderBasketAddParentModifier(con, Convert.ToInt64(request.DOTOrder.Items[i].Items[0].ID), Convert.ToInt32(itemQty), parentItemId);
                     }
 
-                    // this is the check for 20 dips and 3 modifiers
-                    if (request.DOTOrder.Items[i].Items.Count == 3) 
+                    int itemMods = 0;
+                    itemMods = request.DOTOrder.Items[i].Items.Count;
+                    // this is the check for 20 and 9 dips and 2 or 3 modifiers
+                    if ((itemMods == 2) || (itemMods == 3))
                     {
                         //load the main item with the parent item ID and the modifier URN
-                        for (int j = 0; j < 3; j++)
+                        for (int j = 0; j < itemMods; j++)
                             IOrderBasketAddParentModifier(con, Convert.ToInt64(request.DOTOrder.Items[i].Items[j].ID), Convert.ToInt32(request.DOTOrder.Items[i].Items[j].Qty), parentItemId);
                         break;
                     }
@@ -93,7 +95,7 @@ namespace GenericPOSRestService.RESTListener
                     int numOfItemsInParent = request.DOTOrder.Items[i].Items.Count;
 
                     //If a meal or main item has other components loop through
-                    if ((numOfItemsInParent != 0) && (count < 2)) 
+                    if ((numOfItemsInParent == 4) && (count < 2)) 
                     {
                         menuParentId = Convert.ToInt64(request.DOTOrder.Items[i].ID);  //long id of the parent item
 
@@ -105,7 +107,7 @@ namespace GenericPOSRestService.RESTListener
                             for (int md = 0; md < numOfParentModItems; md++)
                             {
                                 //load the main item with the parent item ID  and the modifier URN
-                                IOrderBasketAddParentModifier(con, Convert.ToInt64(request.DOTOrder.Items[i].Items[md].Items[0].ID), 1, parentItemId);
+                                IOrderBasketAddParentModifier(con, Convert.ToInt64(request.DOTOrder.Items[i].Items[0].Items[md].ID), Convert.ToInt32(request.DOTOrder.Items[i].Items[0].Items[md].Qty), parentItemId);
 
                             }
                         }
