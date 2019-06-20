@@ -73,29 +73,21 @@ namespace GenericPOSRestService.RESTListener
                     parentItemId = IOrderBasketAddParentItem(con, basketId, Convert.ToInt32(itemQty), itemId);
 
                     
-                    //if item is a single Item and has a modifier run the iOrderBasketAddParentModifier
-                    if (request.DOTOrder.Items[i].Items.Count == 1)
-                    {
-                        //load the main item with the parent item ID  and the modifier URN
-                        IOrderBasketAddParentModifier(con, Convert.ToInt64(request.DOTOrder.Items[i].Items[0].ID), Convert.ToInt32(itemQty), parentItemId);
-                    }
-
                     int itemMods = 0;
                     itemMods = request.DOTOrder.Items[i].Items.Count;
-                    // this is the check for 20 and 9 dips and 2 or 3 modifiers
-                    if ((itemMods == 2) || (itemMods == 3))
+                    // this is the check for parent Items with modifiers
+                    if ((itemMods > 0) && (itemMods < 4))
                     {
                         //load the main item with the parent item ID and the modifier URN
                         for (int j = 0; j < itemMods; j++)
                             IOrderBasketAddParentModifier(con, Convert.ToInt64(request.DOTOrder.Items[i].Items[j].ID), Convert.ToInt32(request.DOTOrder.Items[i].Items[j].Qty), parentItemId);
-                        break;
                     }
 
                     //Check for a meal with 2 sides i.e drink and Fries which are components
                     int numOfItemsInParent = request.DOTOrder.Items[i].Items.Count;
 
                     //If a meal or main item has other components loop through
-                    if ((numOfItemsInParent == 4) && (count < 2)) 
+                    if ((numOfItemsInParent > 3) && (count < 2)) 
                     {
                         menuParentId = Convert.ToInt64(request.DOTOrder.Items[i].ID);  //long id of the parent item
 
