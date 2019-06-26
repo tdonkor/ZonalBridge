@@ -111,7 +111,7 @@ namespace GenericPOSRestService.RESTListener
 
                             //we don't want to check whether the Parent is a Component so just ignore it
                             //check it is a meal
-                            if ((request.DOTOrder.Items[0].IsMenu == true) && (itemId != menuParentId))
+                            if (itemId != menuParentId)
                             {
                                 //drink and side
                                 if (count < 2)
